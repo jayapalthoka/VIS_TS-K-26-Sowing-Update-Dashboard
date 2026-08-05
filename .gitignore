@@ -1,0 +1,11 @@
+service_account.json
+
+__pycache__/
+*.pyc
+
+.env
+.env.*
+
+.streamlit/secrets.toml
+
+.vscode/
