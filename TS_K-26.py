@@ -94,7 +94,7 @@ SCOPES = [
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-JSON_PATH = os.path.join(BASE_DIR, "service_account.json")
+#JSON_PATH = os.path.join(BASE_DIR, "service_account.json")
 
 SPREADSHEET_ID = "1XNzggS3DKn8ucffUx1QKBlrDXVLigLg3psR2WHdyR9I"
 
@@ -107,10 +107,10 @@ WORKSHEET_NAME = "Overall Farmer List - Kharif-26"
 @st.cache_data(ttl=60)
 def load_data():
 
-    creds = Credentials.from_service_account_file(
-        JSON_PATH,
-        scopes=SCOPES
-    )
+    creds = Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=SCOPES
+)
 
     client = gspread.authorize(creds)
 
