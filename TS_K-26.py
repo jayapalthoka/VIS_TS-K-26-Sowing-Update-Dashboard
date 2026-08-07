@@ -507,51 +507,78 @@ overview_tab, study_tab, fo_tab, timeline_tab, data_tab = st.tabs(
         "📋 Data"
     ]
 )
+def summary_card(title, icon, target, achieved, unit="", decimals=0):
+
+    pending = target - achieved
+    percent = (achieved / target * 100) if target > 0 else 0
+
+    if decimals == 0:
+        target = f"{target:,.0f}"
+        achieved = f"{achieved:,.0f}"
+        pending = f"{pending:,.0f}"
+    else:
+        target = f"{target:,.2f}{unit}"
+        achieved = f"{achieved:,.2f}{unit}"
+        pending = f"{pending:,.2f}{unit}"
+
+    st.markdown(f"### {icon} {title}")
+
+    r1, r2 = st.columns([2,1])
+    with r1:
+        st.caption("🎯 Target")
+    with r2:
+        st.markdown(f"**{target}**")
+
+    r1, r2 = st.columns([2,1])
+    with r1:
+        st.caption("✅ Achieved")
+    with r2:
+        st.markdown(f"**:green[{achieved}]**")
+
+    r1, r2 = st.columns([2,1])
+    with r1:
+        st.caption("⏳ Pending")
+    with r2:
+        st.markdown(f"**:red[{pending}]**")
+
+    st.progress(percent/100)
+
+    st.caption(f"**{percent:.2f}% Completed**")
 # ==========================================================
 # OVERVIEW TAB
 # ==========================================================
-
 with overview_tab:
 
     st.subheader("📊 Dashboard Overview")
 
-    # ======================================================
-    # KPI CARDS
-    # ======================================================
+    c1, c2, c3 = st.columns(3)
 
-    k1, k2, k3, k4, k5, k6 = st.columns(6)
+    achieved_farmers = active_df["Farmer Code"].nunique()
 
-    k1.metric(
-        "👨‍🌾 Farmers",
-        f"{target_farmers:,}"
-    )
+    with c1:
+        summary_card(
+            title="Farmers",
+            icon="👨‍🌾",
+            target=target_farmers,
+            achieved=achieved_farmers
+        )
+    with c2:
+                summary_card(
+                    title="Plots",
+                    icon="📍",
+                    target=target_plots,
+                    achieved=achieved_plots
+                )
 
-    k2.metric(
-        "🌾 Target Plots",
-        f"{target_plots:,}"
-    )
-
-    k3.metric(
-        "🌱 Target Ha",
-        f"{target_hectares:,.2f}"
-    )
-
-    k4.metric(
-        "✅ Achieved Ha",
-        f"{achieved_hectares:,.2f}",
-        f"{achievement_pct:.2f}%"
-    )
-
-    k5.metric(
-        "⏳ Pending Ha",
-        f"{pending_hectares:,.2f}",
-        f"{pending_pct:.2f}%"
-    )
-
-    k6.metric(
-        "📈 Achievement",
-        f"{achievement_pct:.2f}%"
-    )
+    with c3:
+        summary_card(
+            title="Area (Ha)",
+            icon="🌱",
+            target=target_hectares,
+            achieved=achieved_hectares,
+            unit=" Ha",
+            decimals=2
+        )
 
     st.divider()
 
