@@ -462,8 +462,70 @@ def convert_dashboard_excel(
     cluster_summary,
     study_cp,
     cluster_cp,
+    fo_summary,
+    timeline_daily,
     raw_data
 ):
+
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(
+        output,
+        engine="openpyxl"
+    ) as writer:
+
+        # 1. Study Summary
+        study_summary.to_excel(
+            writer,
+            sheet_name="Study Summary",
+            index=False
+        )
+
+        # 2. Cluster Summary
+        cluster_summary.to_excel(
+            writer,
+            sheet_name="Cluster Summary",
+            index=False
+        )
+
+        # 3. Study Cultivation
+        study_cp.to_excel(
+            writer,
+            sheet_name="Study Cultivation",
+            index=False
+        )
+
+        # 4. Cluster Cultivation
+        cluster_cp.to_excel(
+            writer,
+            sheet_name="Cluster Cultivation",
+            index=False
+        )
+
+        # 5. Field Officer
+        fo_summary.to_excel(
+            writer,
+            sheet_name="Field Officer",
+            index=False
+        )
+
+        # 6. Timeline
+        if timeline_daily is not None and not timeline_daily.empty:
+
+            timeline_daily.to_excel(
+                writer,
+                sheet_name="Timeline",
+                index=False
+            )
+
+        # 7. Raw Data
+        raw_data.to_excel(
+            writer,
+            sheet_name="Raw Data",
+            index=False
+        )
+
+    return output.getvalue()
     output = io.BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -499,7 +561,11 @@ def convert_dashboard_excel(
         )
 
     return output.getvalue()
+# ==========================================================
+# MASTER DOWNLOAD DATA INITIALIZATION
+# ==========================================================
 
+daily = pd.DataFrame()
 # ==========================================================
 # TABS
 # ==========================================================
@@ -1085,12 +1151,49 @@ with data_tab:
     # -----------------------------------------
 
     st.download_button(
-        label="⬇ Download Filtered Data",
-        data=convert_excel(display_df),
-        file_name="Filtered_Data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    st.divider()
+    label="⬇ Download Filtered Data",
+    data=convert_excel(display_df),
+    file_name="Filtered_Data.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+
+# ==========================================================
+# OVERALL MASTER DOWNLOAD
+# ==========================================================
+
+st.divider()
+
+st.subheader("📥 Overall Master Download")
+
+st.caption(
+    "Download all major dashboard data including "
+    "Study, Cluster, Field Officer, Timeline and Raw Data."
+)
+
+
+master_excel = convert_dashboard_excel(
+    study_summary=study_summary,
+    cluster_summary=cluster_summary,
+    study_cp=study_cp,
+    cluster_cp=cluster_cp,
+    fo_summary=fo_summary,
+    timeline_daily=daily,
+    raw_data=filtered_df
+)
+
+
+st.download_button(
+    label="📥 Download Overall Master Excel",
+    data=master_excel,
+    file_name="TS_Kharif_26_Overall_Master.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    key="overall_master_download",
+    use_container_width=True
+)
+
+
+st.divider()
 
 st.caption(
     "Developed by Jayapal Thoka"
