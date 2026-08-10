@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 import gspread
 import io
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from datetime import datetime
 from google.oauth2.service_account import Credentials
@@ -37,8 +39,8 @@ st.markdown("""
 }
 
 .block-container{
-    padding-top:1rem;
-    padding-bottom:1rem;
+    padding-top:2rem;
+    padding-bottom:2rem;
 }
 
 div[data-testid="metric-container"]{
@@ -70,6 +72,11 @@ tbody td{
 # ==========================================
 
 col1, col2 = st.columns([1,6])
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Get current India Standard Time
+india_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 
 with col1:
     # st.image("logo.png", width=90)
@@ -78,11 +85,10 @@ with col1:
 with col2:
     st.title("🌾 TS Kharif-26 Monitoring Dashboard")
     st.caption(
-        f"Last Updated : {datetime.now().strftime('%d-%b-%Y %I:%M %p')}"
+        f"Last Updated : {india_time.strftime('%d-%b-%Y %I:%M %p')}"
     )
 
 st.divider()
-
 # ==========================================================
 # GOOGLE SHEETS CONFIGURATION
 # ==========================================================
