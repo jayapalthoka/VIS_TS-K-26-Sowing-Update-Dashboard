@@ -463,7 +463,7 @@ def convert_dashboard_excel(
     study_cp,
     cluster_cp,
     fo_summary,
-    timeline_daily,
+    timeline_data,
     raw_data
 ):
 
@@ -474,51 +474,42 @@ def convert_dashboard_excel(
         engine="openpyxl"
     ) as writer:
 
-        # 1. Study Summary
         study_summary.to_excel(
             writer,
             sheet_name="Study Summary",
             index=False
         )
 
-        # 2. Cluster Summary
         cluster_summary.to_excel(
             writer,
             sheet_name="Cluster Summary",
             index=False
         )
 
-        # 3. Study Cultivation
         study_cp.to_excel(
             writer,
             sheet_name="Study Cultivation",
             index=False
         )
 
-        # 4. Cluster Cultivation
         cluster_cp.to_excel(
             writer,
             sheet_name="Cluster Cultivation",
             index=False
         )
 
-        # 5. Field Officer
         fo_summary.to_excel(
             writer,
             sheet_name="Field Officer",
             index=False
         )
 
-        # 6. Timeline
-        if timeline_daily is not None and not timeline_daily.empty:
+        timeline_data.to_excel(
+            writer,
+            sheet_name="Timeline",
+            index=False
+        )
 
-            timeline_daily.to_excel(
-                writer,
-                sheet_name="Timeline",
-                index=False
-            )
-
-        # 7. Raw Data
         raw_data.to_excel(
             writer,
             sheet_name="Raw Data",
@@ -566,6 +557,88 @@ def convert_dashboard_excel(
 # ==========================================================
 
 daily = pd.DataFrame()
+# ==========================================================
+# MASTER DOWNLOAD DATA
+# ==========================================================
+
+# Study Summary
+master_study_summary = cultivation_summary("Study2")
+
+# Cluster Summary
+master_cluster_summary = cultivation_summary("Cluster")
+
+# Study Cultivation
+master_study_cp = cultivation_practice_summary("Study2")
+
+# Cluster Cultivation
+master_cluster_cp = cultivation_practice_summary("Cluster")
+
+# Field Officer
+master_fo_summary = cultivation_summary("Field Officer")
+
+
+# Timeline data
+master_timeline_df = filtered_df.copy()
+
+date_col = "Kharif-26 DSR/Nursery Sowing Date"
+
+master_timeline_df = master_timeline_df[
+    master_timeline_df[date_col].notna()
+]
+
+if not master_timeline_df.empty:
+
+    master_daily = (
+        master_timeline_df
+        .groupby(date_col)
+        .agg(
+            Plots=("Plot Codes", "nunique"),
+            Hectares=("Kharif-26 Hectares", "sum")
+        )
+        .reset_index()
+        .sort_values(date_col)
+    )
+
+else:
+
+    master_daily = pd.DataFrame(
+        columns=[
+            date_col,
+            "Plots",
+            "Hectares"
+        ]
+    )
+    # ==========================================================
+# TOP RIGHT MASTER DOWNLOAD
+# ==========================================================
+
+top_left, top_right = st.columns(
+    [8, 2]
+)
+
+with top_right:
+
+    master_excel = convert_dashboard_excel(
+        study_summary=master_study_summary,
+        cluster_summary=master_cluster_summary,
+        study_cp=master_study_cp,
+        cluster_cp=master_cluster_cp,
+        fo_summary=master_fo_summary,
+        timeline_data=master_daily,
+        raw_data=filtered_df
+    )
+
+    st.download_button(
+        label="📥 Download Overall Data",
+        data=master_excel,
+        file_name="TS_Kharif_26_Overall_Master.xlsx",
+        mime=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        key="master_download_top",
+        use_container_width=True
+    )
 # ==========================================================
 # TABS
 # ==========================================================
@@ -1161,37 +1234,6 @@ with data_tab:
 # ==========================================================
 # OVERALL MASTER DOWNLOAD
 # ==========================================================
-
-st.divider()
-
-st.subheader("📥 Overall Master Download")
-
-st.caption(
-    "Download all major dashboard data including "
-    "Study, Cluster, Field Officer, Timeline and Raw Data."
-)
-
-
-master_excel = convert_dashboard_excel(
-    study_summary=study_summary,
-    cluster_summary=cluster_summary,
-    study_cp=study_cp,
-    cluster_cp=cluster_cp,
-    fo_summary=fo_summary,
-    timeline_daily=daily,
-    raw_data=filtered_df
-)
-
-
-st.download_button(
-    label="📥 Download Overall Master Excel",
-    data=master_excel,
-    file_name="TS_Kharif_26_Overall_Master.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    key="overall_master_download",
-    use_container_width=True
-)
-
 
 st.divider()
 
