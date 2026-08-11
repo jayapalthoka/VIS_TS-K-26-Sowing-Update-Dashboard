@@ -142,9 +142,6 @@ tbody td{
 # DASHBOARD HEADER
 # ==========================================
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 # Get current India Standard Time
 india_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 
@@ -156,7 +153,6 @@ st.caption(
     f"Last Updated : {india_time.strftime('%d-%b-%Y %I:%M %p')}"
 )
 
-st.divider()
 # ==========================================================
 # GOOGLE SHEETS CONFIGURATION
 # ==========================================================
@@ -389,7 +385,8 @@ pending_pct = round(
 # REUSABLE SUMMARY FUNCTION
 # ==========================================================
 
-def cultivation_summary(group_column):
+@st.cache_data(show_spinner=False)
+def _cultivation_summary_cached(filtered_df, active_df, group_column):
 
     target = (
         filtered_df
@@ -439,10 +436,19 @@ def cultivation_summary(group_column):
 
     return summary
 
+
+def cultivation_summary(group_column):
+    return _cultivation_summary_cached(
+        filtered_df,
+        active_df,
+        group_column
+    )
+
 # ==========================================================
 # DOWNLOAD FUNCTION
 # ==========================================================
-def cultivation_practice_summary(group_column):
+@st.cache_data(show_spinner=False)
+def _cultivation_practice_summary_cached(filtered_df, active_df, group_column):
 
     target = (
         filtered_df.groupby(group_column)
@@ -507,6 +513,16 @@ def cultivation_practice_summary(group_column):
     ).fillna(0).round(2)
 
     return summary.reset_index()
+
+
+def cultivation_practice_summary(group_column):
+    return _cultivation_practice_summary_cached(
+        filtered_df,
+        active_df,
+        group_column
+    )
+
+
 @st.cache_data
 def convert_excel(data):
 
@@ -524,33 +540,58 @@ def convert_excel(data):
         )
 
     return output.getvalue()
-def _style_excel_sheet(ws, table_ranges=None, freeze_panes="A2"):
-    """Apply a clean professional style to an Excel worksheet."""
+def _style_excel_sheet(ws, table_ranges=None, freeze_panes="A2", tab_color="2E7D32"):
+    """Apply a clean, centered, professional style to a worksheet."""
 
-    # Professional dashboard colors
-    dark_green = "1B5E20"
-    green = "2E7D32"
-    light_green = "E8F5E9"
-    very_light_green = "F6FBF6"
-    white = "FFFFFF"
     dark_text = "263238"
-    grey = "6B7280"
-    light_grey = "E5E7EB"
-    red = "D32F2F"
-    orange = "EF6C00"
+    white = "FFFFFF"
+    light_grey = "D9E2D9"
+    very_light = "F7FBF7"
 
     thin = Side(style="thin", color=light_grey)
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    border = Border(
+        left=thin,
+        right=thin,
+        top=thin,
+        bottom=thin
+    )
 
+    # Keep the first row frozen.
     ws.freeze_panes = freeze_panes
     ws.sheet_view.showGridLines = False
+    ws.sheet_properties.tabColor = tab_color
 
     # Default row height
     for row in ws.iter_rows():
-        ws.row_dimensions[row[0].row].height = 20
+        ws.row_dimensions[row[0].row].height = 21
 
-    # Style section headings / normal headers
-    for row in ws.iter_rows():
+    # Detect the actual header row (normally row 1)
+    header_row = 1
+
+    # Header
+    for cell in ws[header_row]:
+        if cell.value is not None:
+            cell.font = Font(
+                name="Calibri",
+                size=10,
+                bold=True,
+                color=white
+            )
+            cell.fill = PatternFill(
+                "solid",
+                fgColor=tab_color
+            )
+            cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+                wrap_text=True
+            )
+            cell.border = border
+
+    ws.row_dimensions[header_row].height = 34
+
+    # Data cells: center aligned and clearly bordered
+    for row in ws.iter_rows(min_row=2):
         for cell in row:
             if cell.value is None:
                 continue
@@ -561,91 +602,25 @@ def _style_excel_sheet(ws, table_ranges=None, freeze_panes="A2"):
                 color=dark_text
             )
             cell.alignment = Alignment(
+                horizontal="center",
                 vertical="center",
-                horizontal="left",
                 wrap_text=True
             )
-
-            # Section title rows
-            if (
-                isinstance(cell.value, str)
-                and cell.column == 1
-                and cell.value in {
-                    "STUDY-WISE PROGRESS",
-                    "STUDY-WISE CULTIVATION",
-                    "CLUSTER-WISE PROGRESS",
-                    "CLUSTER-WISE CULTIVATION"
-                }
-            ):
-                cell.font = Font(
-                    name="Calibri",
-                    size=12,
-                    bold=True,
-                    color=white
-                )
-                cell.fill = PatternFill(
-                    "solid",
-                    fgColor=green
-                )
-                cell.alignment = Alignment(
-                    horizontal="left",
-                    vertical="center"
-                )
-                ws.row_dimensions[cell.row].height = 24
-
-    # Detect table header rows and style them
-    for row in ws.iter_rows():
-        values = [cell.value for cell in row]
-        if any(v in values for v in [
-            "Target_Farmers",
-            "Target_Plots",
-            "Target_Hectares",
-            "Target_Ha",
-            "Field Officer",
-            "Kharif-26 DSR/Nursery Sowing Date",
-            "Study2",
-            "Cluster"
-        ]):
-            for cell in row:
-                if cell.value is not None:
-                    cell.font = Font(
-                        name="Calibri",
-                        size=10,
-                        bold=True,
-                        color=white
-                    )
-                    cell.fill = PatternFill(
-                        "solid",
-                        fgColor=dark_green
-                    )
-                    cell.alignment = Alignment(
-                        horizontal="center",
-                        vertical="center",
-                        wrap_text=True
-                    )
-                    cell.border = border
-            ws.row_dimensions[row[0].row].height = 30
-
-    # Apply borders, alignment and number formats
-    for row in ws.iter_rows():
-        for cell in row:
-            if cell.value is None:
-                continue
-
             cell.border = border
 
-            if isinstance(cell.value, (int, float)):
-                cell.alignment = Alignment(
-                    horizontal="right",
-                    vertical="center"
+            # Light alternate row shading
+            if cell.row % 2 == 0:
+                cell.fill = PatternFill(
+                    "solid",
+                    fgColor=very_light
                 )
 
-            # Percentage columns
+            # Percentage format
             header = ws.cell(1, cell.column).value
             if isinstance(header, str) and "%" in header:
                 cell.number_format = '0.00"%"'
 
-            # Ha / numeric hectare columns
+            # Hectare / decimal format
             if isinstance(header, str) and (
                 "Hectares" in header
                 or header.endswith("_Ha")
@@ -653,40 +628,58 @@ def _style_excel_sheet(ws, table_ranges=None, freeze_panes="A2"):
             ):
                 cell.number_format = '#,##0.00'
 
-    # Green/red emphasis for achievement and pending percentages
-    for row in ws.iter_rows():
-        for cell in row:
-            if isinstance(cell.value, str) and cell.value in ("Achieved %", "Pending %"):
-                for data_cell in ws[cell.row + 1]:
-                    if data_cell.value is not None:
-                        if cell.value == "Achieved %":
-                            data_cell.font = Font(
-                                name="Calibri",
-                                size=10,
-                                bold=True,
-                                color=green
-                            )
-                        else:
-                            data_cell.font = Font(
-                                name="Calibri",
-                                size=10,
-                                bold=True,
-                                color=red
-                            )
+    # Emphasize percentage columns
+    for col in range(1, ws.max_column + 1):
+        header = ws.cell(1, col).value
 
-    # Alternating row fill for data areas
-    for row in ws.iter_rows():
-        if row[0].row <= 1:
-            continue
-        if row[0].row % 2 == 0:
-            for cell in row:
-                if cell.value is not None and cell.fill.fill_type is None:
-                    cell.fill = PatternFill(
-                        "solid",
-                        fgColor=very_light_green
+        if header == "Achieved %":
+            for row in range(2, ws.max_row + 1):
+                cell = ws.cell(row, col)
+                if cell.value is not None:
+                    cell.font = Font(
+                        name="Calibri",
+                        size=10,
+                        bold=True,
+                        color="2E7D32"
                     )
 
-    # Add Excel tables where valid ranges were supplied
+        elif header == "Pending %":
+            for row in range(2, ws.max_row + 1):
+                cell = ws.cell(row, col)
+                if cell.value is not None:
+                    cell.font = Font(
+                        name="Calibri",
+                        size=10,
+                        bold=True,
+                        color="C62828"
+                    )
+
+    # Smart column widths
+    for col_cells in ws.columns:
+        col_letter = get_column_letter(col_cells[0].column)
+        max_length = 0
+
+        for cell in col_cells:
+            if cell.value is not None:
+                max_length = max(
+                    max_length,
+                    len(str(cell.value))
+                )
+
+        ws.column_dimensions[col_letter].width = min(
+            max(max_length + 3, 12),
+            30
+        )
+
+    if ws.title == "Raw Data":
+        for col in range(1, ws.max_column + 1):
+            letter = get_column_letter(col)
+            ws.column_dimensions[letter].width = min(
+                ws.column_dimensions[letter].width,
+                24
+            )
+
+    # Add Excel tables where valid ranges are supplied
     if table_ranges:
         for idx, ref in enumerate(table_ranges, start=1):
             try:
@@ -704,68 +697,26 @@ def _style_excel_sheet(ws, table_ranges=None, freeze_panes="A2"):
                 table.tableStyleInfo = style
                 ws.add_table(table)
             except Exception:
-                # Styling should never stop the dashboard from exporting.
                 pass
-
-    # Smart column widths
-    for col_cells in ws.columns:
-        col_letter = get_column_letter(col_cells[0].column)
-        max_length = 0
-
-        for cell in col_cells:
-            if cell.value is not None:
-                max_length = max(
-                    max_length,
-                    len(str(cell.value))
-                )
-
-        ws.column_dimensions[col_letter].width = min(
-            max(max_length + 2, 11),
-            30
-        )
-
-    # Keep very wide raw-data columns manageable
-    if ws.title == "Raw Data":
-        for col in range(1, ws.max_column + 1):
-            ws.column_dimensions[get_column_letter(col)].width = min(
-                ws.column_dimensions[get_column_letter(col)].width,
-                24
-            )
-
-    # Conditional formatting for percentage columns
-    for col in range(1, ws.max_column + 1):
-        header = ws.cell(1, col).value
-        if isinstance(header, str) and header in ("Achieved %", "Pending %"):
-            letter = get_column_letter(col)
-            if ws.max_row > 1:
-                ws.conditional_formatting.add(
-                    f"{letter}2:{letter}{ws.max_row}",
-                    ColorScaleRule(
-                        start_type="min",
-                        start_color="FEE2E2",
-                        mid_type="percentile",
-                        mid_value=50,
-                        mid_color="FEF3C7",
-                        end_type="max",
-                        end_color="DCFCE7"
-                    )
-                )
 
 
 def _style_study_cluster_sheet(ws):
-    """Format the combined Study & Cluster worksheet with clear sections."""
+    """Format the combined Study & Cluster worksheet."""
 
     dark_green = "1B5E20"
-    green = "2E7D32"
     white = "FFFFFF"
-    light_green = "E8F5E9"
-    light_red = "FFEBEE"
-    border_color = "DDE5DD"
+    border_color = "D9E2D9"
+    light_row = "F7FBF7"
 
     thin = Side(style="thin", color=border_color)
 
     ws.sheet_view.showGridLines = False
+
+    # Keep the first row frozen.
     ws.freeze_panes = "A2"
+
+    # Green tab for Study & Cluster
+    ws.sheet_properties.tabColor = "2E7D32"
 
     section_names = {
         "STUDY-WISE PROGRESS",
@@ -777,21 +728,27 @@ def _style_study_cluster_sheet(ws):
     section_rows = []
     header_rows = []
 
+    # Identify sections and their table headers
     for r in range(1, ws.max_row + 1):
         value = ws.cell(r, 1).value
 
         if value in section_names:
             section_rows.append(r)
 
-            ws.merge_cells(
-                start_row=r,
-                start_column=1,
-                end_row=r,
-                end_column=max(1, ws.max_column)
-            )
+            # Merge section title across all columns
+            if ws.max_column > 1:
+                ws.merge_cells(
+                    start_row=r,
+                    start_column=1,
+                    end_row=r,
+                    end_column=ws.max_column
+                )
 
             cell = ws.cell(r, 1)
-            cell.fill = PatternFill("solid", fgColor=green)
+            cell.fill = PatternFill(
+                "solid",
+                fgColor=dark_green
+            )
             cell.font = Font(
                 name="Calibri",
                 size=12,
@@ -806,11 +763,10 @@ def _style_study_cluster_sheet(ws):
 
             continue
 
-        # Identify header immediately after a section title
         if r > 1 and (r - 1) in section_rows:
             header_rows.append(r)
 
-    # Style headers and data
+    # Style all normal cells
     for r in range(1, ws.max_row + 1):
         if r in section_rows:
             continue
@@ -827,20 +783,31 @@ def _style_study_cluster_sheet(ws):
                 top=thin,
                 bottom=thin
             )
+
             cell.font = Font(
                 name="Calibri",
                 size=10,
                 color="263238"
             )
+
+            # Center-align all data
             cell.alignment = Alignment(
+                horizontal="center",
                 vertical="center",
-                horizontal="right" if isinstance(cell.value, (int, float)) else "left",
                 wrap_text=True
             )
 
+            if r % 2 == 0:
+                cell.fill = PatternFill(
+                    "solid",
+                    fgColor=light_row
+                )
+
+    # Style each table header
     for r in header_rows:
         for c in range(1, ws.max_column + 1):
             cell = ws.cell(r, c)
+
             if cell.value is not None:
                 cell.fill = PatternFill(
                     "solid",
@@ -863,73 +830,68 @@ def _style_study_cluster_sheet(ws):
                     top=thin,
                     bottom=thin
                 )
-        ws.row_dimensions[r].height = 32
 
-    # Highlight achievement/pending percentage columns
-    for r in header_rows:
+        ws.row_dimensions[r].height = 34
+
+    # Correct number formats and percentage colors
+    for header_row in header_rows:
+
         for c in range(1, ws.max_column + 1):
-            header = ws.cell(r, c).value
-            if header in ("Achieved %", "Pending %"):
-                for rr in range(r + 1, ws.max_row + 1):
-                    # Stop at the next section
-                    if rr in section_rows:
-                        break
-                    cell = ws.cell(rr, c)
-                    if cell.value is not None:
-                        cell.number_format = '0.00"%"'
-                        cell.font = Font(
-                            name="Calibri",
-                            size=10,
-                            bold=True,
-                            color=green if header == "Achieved %" else "D32F2F"
+
+            header = ws.cell(header_row, c).value
+
+            for r in range(header_row + 1, ws.max_row + 1):
+
+                if r in section_rows:
+                    break
+
+                cell = ws.cell(r, c)
+
+                if cell.value is None:
+                    continue
+
+                if header in ("Achieved %", "Pending %"):
+                    cell.number_format = '0.00"%"'
+                    cell.font = Font(
+                        name="Calibri",
+                        size=10,
+                        bold=True,
+                        color=(
+                            "2E7D32"
+                            if header == "Achieved %"
+                            else "C62828"
                         )
+                    )
 
-    # Number formats throughout the combined report
-    for r in range(1, ws.max_row + 1):
-        for c in range(1, ws.max_column + 1):
-            cell = ws.cell(r, c)
-            header_values = []
-            for hr in header_rows:
-                if hr < r:
-                    header_values.append(ws.cell(hr, c).value)
-
-            latest_header = header_values[-1] if header_values else None
-
-            if isinstance(cell.value, (int, float)):
-                if latest_header == "Achieved %":
-                    cell.number_format = '0.00"%"'
-                elif latest_header == "Pending %":
-                    cell.number_format = '0.00"%"'
-                elif latest_header and (
-                    "Hectares" in str(latest_header)
-                    or str(latest_header).endswith("_Ha")
+                elif header and (
+                    "Hectares" in str(header)
+                    or str(header).endswith("_Ha")
+                    or "Ha)" in str(header)
                 ):
                     cell.number_format = '#,##0.00'
 
-    # Alternate data rows within each section
-    for r in range(1, ws.max_row + 1):
-        if r in section_rows or r in header_rows:
-            continue
-        if r % 2 == 0:
-            for c in range(1, ws.max_column + 1):
-                cell = ws.cell(r, c)
-                if cell.value is not None:
-                    cell.fill = PatternFill(
-                        "solid",
-                        fgColor="F7FBF7"
-                    )
-
     # Column widths
     widths = {
-        1: 26, 2: 16, 3: 16, 4: 18,
-        5: 18, 6: 18, 7: 18, 8: 18,
-        9: 18, 10: 18, 11: 18
+        1: 26,
+        2: 18,
+        3: 18,
+        4: 18,
+        5: 18,
+        6: 18,
+        7: 18,
+        8: 18,
+        9: 18,
+        10: 18,
+        11: 18
     }
 
     for c in range(1, ws.max_column + 1):
-        ws.column_dimensions[get_column_letter(c)].width = widths.get(c, 18)
+        ws.column_dimensions[
+            get_column_letter(c)
+        ].width = widths.get(c, 18)
 
 
+@st.cache_data(show_spinner=False)
 def convert_dashboard_excel(
     study_summary,
     cluster_summary,
@@ -1048,22 +1010,27 @@ def convert_dashboard_excel(
         wb["Study & Cluster"]
     )
 
-    # Other sheets
-    for sheet_name in ["Field Officer", "Timeline", "Raw Data"]:
-        ws = wb[sheet_name]
+    # Other sheets — each tab gets its own color.
+    _style_excel_sheet(
+        wb["Field Officer"],
+        table_ranges=None,
+        freeze_panes="A2",
+        tab_color="1565C0"      # Blue
+    )
 
-        if sheet_name == "Raw Data":
-            _style_excel_sheet(
-                ws,
-                table_ranges=None,
-                freeze_panes="A2"
-            )
-        else:
-            _style_excel_sheet(
-                ws,
-                table_ranges=None,
-                freeze_panes="A2"
-            )
+    _style_excel_sheet(
+        wb["Timeline"],
+        table_ranges=None,
+        freeze_panes="A2",
+        tab_color="EF6C00"      # Orange
+    )
+
+    _style_excel_sheet(
+        wb["Raw Data"],
+        table_ranges=None,
+        freeze_panes="A2",
+        tab_color="6A1B9A"      # Purple
+    )
 
     # Field Officer: make achievement percentage visually stronger
     ws = wb["Field Officer"]
@@ -1086,6 +1053,13 @@ def convert_dashboard_excel(
             if isinstance(cell.value, (int, float)):
                 if cell.column == 3:
                     cell.number_format = '#,##0.00'
+                cell.alignment = Alignment(
+                    horizontal="center",
+                    vertical="center",
+                    wrap_text=True
+                )
+
+    # Keep first row frozen
     ws.freeze_panes = "A2"
 
     # Workbook metadata
@@ -1163,27 +1137,53 @@ top_left, top_right = st.columns([9, 1.5])
 
 with top_right:
 
-    master_excel = convert_dashboard_excel(
-        study_summary=master_study_summary,
-        cluster_summary=master_cluster_summary,
-        study_cp=master_study_cp,
-        cluster_cp=master_cluster_cp,
-        fo_summary=master_fo_summary,
-        timeline_data=master_daily,
-        raw_data=filtered_df
-    )
-
-    st.download_button(
-        label="📥 Download Overall Data",
-        data=master_excel,
-        file_name="TS_Kharif_26_Overall_Master.xlsx",
-        mime=(
-            "application/vnd.openxmlformats-officedocument."
-            "spreadsheetml.sheet"
-        ),
-        key="master_download_top",
+    # Excel is prepared only on demand, so initial dashboard loading
+    # remains fast. The result is cached for the current filtered data.
+    if st.button(
+        "📥 Prepare Overall Data",
+        key="prepare_master_excel",
         use_container_width=True
-    )
+    ):
+        with st.status(
+            "Preparing Overall Excel report...",
+            expanded=False
+        ) as status:
+
+            st.write("Building Study & Cluster, Field Officer, Timeline and Raw Data sheets...")
+
+            master_excel = convert_dashboard_excel(
+                study_summary=master_study_summary,
+                cluster_summary=master_cluster_summary,
+                study_cp=master_study_cp,
+                cluster_cp=master_cluster_cp,
+                fo_summary=master_fo_summary,
+                timeline_data=master_daily,
+                raw_data=filtered_df
+            )
+
+            st.session_state["master_excel"] = master_excel
+
+            status.update(
+                label="✅ Overall Excel is ready",
+                state="complete",
+                expanded=False
+            )
+
+    if "master_excel" in st.session_state:
+
+        st.download_button(
+            label="⬇ Download Overall Data",
+            data=st.session_state["master_excel"],
+            file_name="TS_Kharif_26_Overall_Master.xlsx",
+            mime=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            key="master_download_top",
+            use_container_width=True
+        )
+    else:
+        st.caption("Click Prepare Overall Data to generate the Excel file.")
 # ==========================================================
 # TABS
 # ==========================================================
