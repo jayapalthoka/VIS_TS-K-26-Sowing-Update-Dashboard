@@ -8,4 +8,6 @@ __pycache__/
 
 .streamlit/secrets.toml
 
-.vscode/
+.vscode/gcp_service_account.json
+charismatic-sum-503716-i9-91df69bf1884.json
+gcp_service_account.json
